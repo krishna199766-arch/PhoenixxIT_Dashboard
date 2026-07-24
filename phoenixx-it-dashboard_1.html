@@ -282,6 +282,20 @@ textarea{resize:vertical;min-height:64px;width:100%}
 .nrow b{display:block;font-size:12.5px;font-weight:600}
 .nrow span{font-size:11px;color:var(--faint)}
 .hint{font-size:11px;color:var(--faint);margin:14px 2px 0;text-align:center}
+
+/* ---------- access control ---------- */
+.locked{color:var(--faint);letter-spacing:.14em;font-family:var(--mono);font-weight:500}
+.rolebadge{display:flex;align-items:center;gap:6px;padding:0 11px;height:38px;border-radius:10px;border:1px solid var(--line);
+  background:rgba(255,255,255,.04);font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+.rolebadge b{color:var(--orange);font-weight:700}
+.rolebadge svg{width:13px;height:13px;color:var(--faint)}
+.login-role{display:flex;gap:9px}
+.login-role button{flex:1;padding:12px;border-radius:11px;border:1px solid var(--line-2);color:var(--text);text-align:left;transition:.15s}
+.login-role button:hover{border-color:var(--line-2);background:rgba(255,255,255,.04)}
+.login-role button.on{border-color:rgba(255,107,0,.6);background:var(--orange-soft)}
+.login-role button b{display:block;font-family:var(--display);font-size:13.5px;margin-bottom:2px}
+.login-role button span{font-size:10.5px;color:var(--muted)}
+@media(max-width:640px){.rolebadge span{display:none}}
 @media(max-width:640px){
   .hbar{flex-wrap:wrap;padding:10px 13px}
   .search{order:9;width:100%}
@@ -311,6 +325,7 @@ textarea{resize:vertical;min-height:64px;width:100%}
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
       <span class="dot" id="bellCount">0</span>
     </button>
+    <div class="rolebadge" id="roleBadge" title="Your access level"></div>
     <button class="avatar" id="me" title="Account">PX</button>
   </div>
   <nav class="tabs" id="tabs"></nav>
@@ -342,11 +357,18 @@ const SOURCES  = ["Cold Call","Reference","LinkedIn","Website","Google","Instagr
 const TAGS     = ["Construction","Retail","Education","Sports","Healthcare","Real Estate","Manufacturing","Startup","Corporate"];
 const INDUSTRIES = ["Construction","Retail","Education","Sports","Healthcare","Real Estate","Manufacturing","IT Services","Logistics","Hospitality","Finance","Other"];
 const OWNERS   = ["Arun R.","Divya S.","Karthik M.","Nisha P."];
-const ROLES    = ["Admin","Sales","Marketing","Manager"];
+const ROLES    = ["Admin","Manager"];
 const KEY = "phoenixx:pipeline:v1";
 
+/* ---------- access control ---------- */
+/* Change this passcode to control who gets Admin (pricing & revenue) access. */
+const ADMIN_PIN = "phoenixx2026";
+const canPrice = () => S.user.role === "Admin";          // only Admins see pricing
+const LOCK = '<span class="locked" title="Visible to Admins only">•••</span>';
+const pv = v => canPrice() ? money(v) : LOCK;             // price value, gated
+
 /* ---------- state ---------- */
-let S = { clients: [], log: [], user: { name:"Priya Kumar", role:"Admin" }, view:"board", seq: 1 };
+let S = { clients: [], log: [], user: { name:"Priya Kumar", role:"Manager" }, view:"board", seq: 1 };
 let ui = { q:"", filters:{}, showFilters:false, dense:true, calMonth:new Date().getMonth(), calYear:new Date().getFullYear(), ready:false };
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
@@ -477,7 +499,7 @@ function renderTabs() {
 }
 function renderStats() {
   const list = S.clients.filter(c => !c.archived), s = stats(list);
-  const cells = [
+  let cells = [
     ["Total clients", s.total, "", "#FFFFFF"], ["Discovery", s.discovery, "", COL("discovery").c],
     ["Approached", s.approached, "", COL("approached").c], ["Meetings", s.meeting, "", COL("meeting").c],
     ["Proposals", s.proposal, "", COL("proposal").c], ["Converted", s.converted, "", COL("converted").c],
@@ -485,6 +507,7 @@ function renderStats() {
     ["Pipeline value", money(s.pipeline), "open deals", "#FFA35C"], ["Revenue closed", money(s.revenue), "won deals", "#35C97A"],
     ["Follow-ups due", s.due, "today or overdue", "#FF4D4D"], ["Meetings today", s.meetToday, "", "#A57BFF"]
   ];
+  if (!canPrice()) cells = cells.filter(c => !["Pipeline value","Revenue closed"].includes(c[0]));
   $("#stats").innerHTML = cells.map(([l,v,sub,c]) =>
     `<div class="stat" style="--c:${c}"><i>${l}</i><b>${esc(v)}</b>${sub?`<em>${sub}</em>`:""}</div>`).join("");
 }
@@ -540,7 +563,7 @@ function cardSlim(c) {
       <h4>${esc(c.company)}</h4>
       <button class="kebab" data-menu="${c.id}" aria-label="Card actions">⋯</button></div>
     <div class="srow"><span class="t">${esc(c.contactName || "No contact")}</span>
-      <b>${money(c.proposalAmount || c.budget)}</b></div>
+      <b>${pv(c.proposalAmount || c.budget)}</b></div>
     <div class="srow sub">
       <span class="t">${svc ? esc(svc) + ((c.services||[]).length > 1 ? " +" + (c.services.length-1) : "") : esc(c.industry || "—")}</span>
       ${due ? `<span class="${d <= 0 ? "due" : ""}">${due}</span>` : `<span style="color:${col.c}">${col.t.split(" ")[0]}</span>`}</div>
@@ -565,7 +588,7 @@ function cardFull(c) {
     </div>
     <div class="line" style="margin-top:8px">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-      <b style="color:var(--text);font-weight:600">${money(c.proposalAmount || c.budget)}</b>
+      <b style="color:var(--text);font-weight:600">${pv(c.proposalAmount || c.budget)}</b>
       <span style="margin-left:auto;color:${col.c};font-size:10.5px">${col.t}</span></div>
     ${lastNote ? `<div class="note">${esc(lastNote.text.slice(0, 90))}${lastNote.text.length > 90 ? "…" : ""}</div>` : ""}
     <div class="foot">
@@ -635,7 +658,7 @@ function cardMenu(id, anchor) {
 }
 function closeMenus() { document.querySelectorAll("[data-pop]").forEach(e => e.remove()); }
 document.addEventListener("click", e => { if (!e.target.closest("[data-pop]") && !e.target.closest("[data-menu]") && !e.target.closest("#bell") && !e.target.closest("#me")) closeMenus(); });
-addEventListener("keydown", e => { if (e.key === "Escape") { closeMenus(); const s = $(".scrim"); if (s) s.remove(); } });
+addEventListener("keydown", e => { if (e.key === "Escape") { closeMenus(); const s = $(".scrim"); if (s && !s.dataset.login) s.remove(); } });
 
 /* ---------- toast ---------- */
 function toast(html) {
@@ -688,7 +711,7 @@ function openForm(client, status) {
         <div class="pills" id="f_services">${SERVICES.map(sv => `<button type="button" class="pill ${(c.services||[]).includes(sv)?"on":""}" data-v="${esc(sv)}">${sv}</button>`).join("")}</div></div>
       <div class="grid">
         <div class="f"><label>Lead source</label><select id="f_source">${SOURCES.map(o => `<option ${c.source===o?"selected":""}>${o}</option>`).join("")}</select></div>
-        ${t("f_budget","Budget (₹)", c.budget, "number")}
+        ${canPrice() ? t("f_budget","Budget (₹)", c.budget, "number") : ""}
         ${t("f_timeline","Timeline", c.timeline)}
         ${t("f_competitor","Competitor", c.competitor)}
         ${t("f_decisionMaker","Decision maker", c.decisionMaker)}
@@ -708,7 +731,7 @@ function openForm(client, status) {
     </div></div>
 
     <div class="sec"><h5>Proposal &amp; priority</h5><div class="grid">
-      ${t("f_proposalAmount","Proposal amount (₹)", c.proposalAmount, "number")}
+      ${canPrice() ? t("f_proposalAmount","Proposal amount (₹)", c.proposalAmount, "number") : ""}
       ${t("f_proposalLink","Proposal link", c.proposalLink, "url")}
       ${sel("f_priority","Priority",["High","Medium","Low"], c.priority)}
       <div class="f"><label>Stage</label><select id="f_status">${COLS.map(x => `<option value="${x.id}" ${c.status===x.id?"selected":""}>${x.t}</option>`).join("")}</select></div>
@@ -740,16 +763,19 @@ function openForm(client, status) {
   });
 
   s.querySelector("#f_save").addEventListener("click", () => {
-    const g = id => s.querySelector("#f_" + id).value.trim();
+    const g = id => { const el = s.querySelector("#f_" + id); return el ? el.value.trim() : ""; };
     if (!g("company") || !g("contactName") || !g("phone")) { toast("Company name, contact name and phone number are required."); return; }
     const picked = sel => [...s.querySelectorAll(sel + " .pill.on")].map(p => p.dataset.v);
+    // Managers can't see or edit pricing fields — preserve whatever the client already had.
+    const budget = canPrice() ? g("budget") : (c.budget || "");
+    const proposalAmount = canPrice() ? g("proposalAmount") : (c.proposalAmount || "");
     const data = { company:g("company"), industry:g("industry"), website:g("website"), location:g("location"), size:g("size"),
       revenue:g("revenue"), gst:g("gst"), owner:g("owner"), contactName:g("contactName"), designation:g("designation"),
       email:g("email"), phone:g("phone"), whatsapp:g("whatsapp"), linkedin:g("linkedin"),
-      services:picked("#f_services"), source:g("source"), budget:g("budget"), timeline:g("timeline"),
+      services:picked("#f_services"), source:g("source"), budget, timeline:g("timeline"),
       competitor:g("competitor"), decisionMaker:g("decisionMaker"), requirement:g("requirement"), pain:g("pain"),
       remarks:g("remarks"), createdDate:g("createdDate"), followUp:g("followUp"), meeting:g("meeting"),
-      proposalDate:g("proposalDate"), closing:g("closing"), proposalAmount:g("proposalAmount"),
+      proposalDate:g("proposalDate"), closing:g("closing"), proposalAmount,
       proposalLink:g("proposalLink"), priority:g("priority"), status:g("status"), rating, tags:picked("#f_tags"), files };
     if (isNew) {
       const n = Object.assign({ id:uid(), notes:[], archived:false }, data);
@@ -777,7 +803,7 @@ function openDetail(id) {
       <span class="chip" style="border-color:${col.c};color:${col.c}">${col.t}</span>
       <span class="pri ${c.priority}">${c.priority} priority</span>
       <span class="stars">${"★".repeat(c.rating||0)}${"☆".repeat(5-(c.rating||0))}</span>
-      <span style="margin-left:auto;font-family:var(--display);font-size:18px">${money(c.proposalAmount || c.budget)}</span>
+      <span style="margin-left:auto;font-family:var(--display);font-size:18px">${pv(c.proposalAmount || c.budget)}</span>
     </div>
     <div class="dgrid">
       <div>
@@ -793,13 +819,13 @@ function openDetail(id) {
           ${row("LinkedIn", link(c.linkedin))}${row("Decision maker", esc(c.decisionMaker))}</div></div>
         <div class="sec"><h5>Requirement</h5><div class="kv">
           ${row("Services", (c.services||[]).map(x => `<span class="chip svc">${esc(x)}</span>`).join(" "))}
-          ${row("Needs", esc(c.requirement))}${row("Pain points", esc(c.pain))}${row("Budget", money(c.budget))}
+          ${row("Needs", esc(c.requirement))}${row("Pain points", esc(c.pain))}${row("Budget", canPrice() ? money(c.budget) : "")}
           ${row("Timeline", esc(c.timeline))}${row("Competitor", esc(c.competitor))}${row("Remarks", esc(c.remarks))}
           ${row("Tags", (c.tags||[]).map(x => `<span class="chip">#${esc(x)}</span>`).join(" "))}</div></div>
         <div class="sec"><h5>Dates &amp; proposal</h5><div class="kv">
           ${row("Created", fdate(c.createdDate))}${row("Follow-up", fdate(c.followUp))}${row("Meeting", fdate(c.meeting))}
           ${row("Proposal sent", fdate(c.proposalDate))}${row("Expected close", fdate(c.closing))}
-          ${row("Proposal value", money(c.proposalAmount))}${row("Proposal link", link(c.proposalLink))}</div></div>
+          ${row("Proposal value", canPrice() ? money(c.proposalAmount) : "")}${row("Proposal link", link(c.proposalLink))}</div></div>
         <div class="sec"><h5>Attachments</h5>
           ${(c.files||[]).length ? `<div class="filelist">${c.files.map(f => `<div class="file"><span>📎</span><b>${esc(f.name)}</b><span style="color:var(--faint)">${esc(f.size)}</span></div>`).join("")}</div>`
             : `<p style="color:var(--faint);font-size:12px;margin:0">No files yet. Add proposals, contracts or decks from Edit client.</p>`}</div>
@@ -846,7 +872,7 @@ function openDetail(id) {
 function downloadProposal(c) {
   const rows = [["Company", c.company], ["Industry", c.industry], ["Contact", c.contactName + (c.designation ? ", " + c.designation : "")],
     ["Phone", c.phone], ["Email", c.email], ["Services", (c.services||[]).join(", ")], ["Requirement", c.requirement],
-    ["Proposal value", money(c.proposalAmount)], ["Proposal sent", fdate(c.proposalDate)], ["Expected close", fdate(c.closing)],
+    ...(canPrice() ? [["Proposal value", money(c.proposalAmount)]] : []), ["Proposal sent", fdate(c.proposalDate)], ["Expected close", fdate(c.closing)],
     ["Stage", COL(c.status).t], ["Owner", c.owner]];
   const html = `<!doctype html><meta charset="utf-8"><title>Proposal — ${esc(c.company)}</title>
     <style>body{font-family:system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 24px;color:#111}
@@ -865,7 +891,7 @@ function dl(text, name, type) {
   a.download = name; a.click(); URL.revokeObjectURL(a.href);
 }
 function exportCSV() {
-  const cols = ["company","industry","location","contactName","designation","phone","whatsapp","email","linkedin","status","priority","rating","source","services","tags","budget","proposalAmount","createdDate","followUp","meeting","proposalDate","closing","owner","requirement","remarks"];
+  const cols = ["company","industry","location","contactName","designation","phone","whatsapp","email","linkedin","status","priority","rating","source","services","tags",...(canPrice() ? ["budget","proposalAmount"] : []),"createdDate","followUp","meeting","proposalDate","closing","owner","requirement","remarks"];
   const cell = v => `"${String(Array.isArray(v) ? v.join(" | ") : (v ?? "")).replace(/"/g, '""')}"`;
   const csv = [cols.join(","), ...S.clients.map(c => cols.map(k => cell(k === "status" ? COL(c.status).t : c[k])).join(","))].join("\n");
   dl("\ufeff" + csv, "phoenixx-clients-" + today() + ".csv", "text/csv"); toast("CSV exported — opens in Excel");
@@ -909,14 +935,14 @@ function viewAnalytics() {
         <text x="60" y="74" text-anchor="middle" fill="#6C6C79" font-size="9" letter-spacing="1.4">CLIENTS</text></svg>
         <div class="legend">${srcs.map(([k,v],i) => `<div><i style="background:${palette[i%6]}"></i>${esc(k)}<b>${v}</b></div>`).join("") || emptyChart()}</div></div></div>
 
-    <div class="panel glass"><h3>Proposal value by stage</h3><p class="sub">Money sitting in each column</p>
+    ${canPrice() ? `<div class="panel glass"><h3>Proposal value by stage</h3><p class="sub">Money sitting in each column</p>
       <div class="bars">${valueBy.map(x => `<div class="bar"><span class="t">${x.c.t}</span>
         <span class="track"><span class="fill" style="width:${(x.v/maxV*100).toFixed(0)}%;background:linear-gradient(90deg,${x.c.c},${x.c.c}55)"></span></span>
         <span class="v">${money(x.v)}</span></div>`).join("")}</div></div>
 
     <div class="panel glass"><h3>Revenue closed</h3><p class="sub">Won deals by expected close month</p>
       <div class="cols6">${months.map((m,i) => `<div class="cbar"><em>${revBy[i] ? money(revBy[i]) : "—"}</em>
-        <div class="b" style="height:${(revBy[i]/maxR*100).toFixed(0)}%;background:linear-gradient(180deg,#35C97A,rgba(53,201,122,.2))"></div><span>${m.l}</span></div>`).join("")}</div></div>
+        <div class="b" style="height:${(revBy[i]/maxR*100).toFixed(0)}%;background:linear-gradient(180deg,#35C97A,rgba(53,201,122,.2))"></div><span>${m.l}</span></div>`).join("")}</div></div>` : ""}
 
     <div class="panel glass"><h3>Services in demand</h3><p class="sub">Across every open and closed client</p>
       <div class="bars">${svcs.length ? svcs.map(([k,v]) => `<div class="bar"><span class="t">${esc(k)}</span>
@@ -988,18 +1014,30 @@ function openAccount() {
   closeMenus();
   const m = document.createElement("div"); m.className = "menu"; m.dataset.pop = "1";
   m.innerHTML = `<div class="head">Signed in as</div>
-    <div style="padding:2px 10px 8px"><b style="font-size:13px">${esc(S.user.name)}</b><br><span style="font-size:11px;color:var(--faint)">${esc(S.user.role)} access</span></div>
+    <div style="padding:2px 10px 8px"><b style="font-size:13px">${esc(S.user.name)}</b><br><span style="font-size:11px;color:var(--faint)">${esc(S.user.role)} access${canPrice() ? "" : " · pricing hidden"}</span></div>
     <hr><div class="head">Switch role</div>
-    ${ROLES.map(r => `<button data-role="${r}">${r}${S.user.role === r ? " ✓" : ""}</button>`).join("")}
+    ${ROLES.map(r => `<button data-role="${r}">${r === "Admin" ? "🔒 " : ""}${r} access${S.user.role === r ? " ✓" : ""}</button>`).join("")}
     <hr><button data-a="backup">Download backup</button><button data-a="restore">Restore from backup</button>
-    <button data-a="seed">Load sample data</button><button class="danger" data-a="wipe">Clear all data</button>`;
+    <button data-a="seed">Load sample data</button><button class="danger" data-a="wipe">Clear all data</button>
+    <hr><button class="danger" data-a="signout">Sign out</button>`;
   document.body.appendChild(m);
   const r = $("#me").getBoundingClientRect();
   m.style.top = (r.bottom + 8) + "px"; m.style.left = Math.max(10, r.right - m.offsetWidth) + "px";
   m.addEventListener("click", async e => {
     const b = e.target.closest("button"); if (!b) return; closeMenus();
-    if (b.dataset.role) { S.user.role = b.dataset.role; save(); toast(`Role set to <b>${b.dataset.role}</b>`); render(); return; }
+    if (b.dataset.role) {
+      const target = b.dataset.role;
+      if (target === S.user.role) return;
+      if (target === "Admin") {
+        const pin = prompt("Enter the admin passcode to unlock pricing & revenue:");
+        if (pin === null) return;
+        if (pin !== ADMIN_PIN) { toast("Incorrect passcode — still on Manager access."); return; }
+      }
+      S.user.role = target; save(); renderRoleBadge();
+      toast(`Switched to <b>${target}</b> access`); render(); return;
+    }
     const a = b.dataset.a;
+    if (a === "signout") { showLogin(); return; }
     if (a === "backup") { dl(JSON.stringify({ clients:S.clients, log:S.log, user:S.user, exported:new Date().toISOString() }, null, 2), "phoenixx-backup-" + today() + ".json", "application/json"); toast("Backup downloaded"); }
     if (a === "restore") {
       const inp = document.createElement("input"); inp.type = "file"; inp.accept = ".json";
@@ -1011,6 +1049,69 @@ function openAccount() {
     if (a === "seed") { if (confirm("Load sample data? This replaces the clients currently on the board.")) { seed(); render(); toast("Sample data loaded"); } }
     if (a === "wipe") { if (confirm("Clear every client and all history? This cannot be undone.")) { S.clients = []; S.log = []; save(); render(); toast("All data cleared"); } }
   });
+}
+
+/* ---------- sign-in & roles ---------- */
+function renderRoleBadge() {
+  const el = $("#roleBadge"); if (!el) return;
+  const admin = canPrice();
+  el.innerHTML =
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="${admin ? "M7 11V7a5 5 0 0 1 9.9-1" : "M7 11V7a5 5 0 0 1 10 0v4"}"/></svg>
+     <span><b>${esc(S.user.role)}</b>${admin ? " · full access" : " · pricing hidden"}</span>`;
+}
+
+function showLogin() {
+  closeMenus();
+  document.querySelectorAll(".scrim").forEach(x => x.remove());
+  const s = document.createElement("div"); s.className = "scrim"; s.dataset.login = "1"; s.style.zIndex = "400";
+  s.innerHTML = `<div class="sheet" style="width:min(440px,100%)">
+    <header><h2>Sign in to Phoenixx IT</h2></header>
+    <div class="body">
+      <p style="color:var(--muted);margin:0 0 16px;font-size:12.5px">Choose your access level. Pricing, budgets and revenue figures are visible to <b style="color:var(--text)">Admins</b> only.</p>
+      <div class="f" style="margin-bottom:14px"><label for="lg_name">Your name</label>
+        <input id="lg_name" type="text" value="${esc(S.user.name||"")}" placeholder="e.g. Priya Kumar"></div>
+      <div class="f" style="margin-bottom:14px"><label>Access level</label>
+        <div class="login-role" id="lg_roles">
+          <button type="button" data-role="Admin"><b>Admin</b><span>Full access, incl. pricing &amp; revenue</span></button>
+          <button type="button" data-role="Manager" class="on"><b>Manager</b><span>Everything except pricing</span></button>
+        </div></div>
+      <div class="f" id="lg_pinwrap" style="display:none;margin-bottom:4px"><label for="lg_pin">Admin passcode</label>
+        <input id="lg_pin" type="password" placeholder="Enter admin passcode" autocomplete="off"></div>
+      <p id="lg_err" style="color:#FF8A8A;font-size:11.5px;margin:8px 0 0;display:none"></p>
+    </div>
+    <div class="actions"><button class="btn primary" id="lg_go" style="width:100%">Continue</button></div>
+  </div>`;
+  document.body.appendChild(s);
+
+  let role = "Manager";
+  const pinwrap = s.querySelector("#lg_pinwrap"), err = s.querySelector("#lg_err");
+  s.querySelectorAll("#lg_roles button").forEach(btn => btn.addEventListener("click", () => {
+    role = btn.dataset.role;
+    s.querySelectorAll("#lg_roles button").forEach(x => x.classList.toggle("on", x === btn));
+    pinwrap.style.display = role === "Admin" ? "flex" : "none";
+    err.style.display = "none";
+    if (role === "Admin") s.querySelector("#lg_pin").focus();
+  }));
+  const go = () => {
+    const name = s.querySelector("#lg_name").value.trim() || "Team member";
+    if (role === "Admin" && s.querySelector("#lg_pin").value !== ADMIN_PIN) {
+      err.textContent = "Incorrect admin passcode. Try again, or continue as Manager."; err.style.display = "block";
+      s.querySelector("#lg_pin").focus(); return;
+    }
+    S.user = { name, role }; save(); s.remove(); startApp();
+    toast(`Welcome, <b>${esc(name)}</b> · ${role} access`);
+  };
+  s.querySelector("#lg_go").addEventListener("click", go);
+  s.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); go(); } });
+  s.querySelector("#lg_name").focus();
+}
+
+function startApp() {
+  $("#me").textContent = (S.user.name || "PX").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  renderRoleBadge();
+  render();
+  const bt = document.querySelector('.tab[data-tab="board"]'); if (bt) bt.classList.add("on");
 }
 
 /* ---------- events ---------- */
@@ -1035,9 +1136,8 @@ addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "k"
 (async () => {
   const had = await load();
   if (!had || !S.clients.length) seed();
-  $("#me").textContent = S.user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  render();
-  document.querySelector('.tab[data-tab="board"]').classList.add("on");
+  S.user.role = "Manager";        // never auto-restore Admin — pricing stays locked until sign-in
+  showLogin();                    // startApp() runs after a successful sign-in
 })();
 
 })();
