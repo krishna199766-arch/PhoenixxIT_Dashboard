@@ -361,7 +361,7 @@ const SOURCES  = ["Cold Call","Reference","LinkedIn","Website","Google","Instagr
 const TAGS     = ["Construction","Retail","Education","Sports","Healthcare","Real Estate","Manufacturing","Startup","Corporate"];
 const INDUSTRIES = ["Construction","Retail","Education","Sports","Healthcare","Real Estate","Manufacturing","IT Services","Logistics","Hospitality","Finance","Other"];
 const OWNERS   = ["Arun R.","Divya S.","Karthik M.","Nisha P."];
-const ROLES    = ["Admin","Manager"];
+const ROLES    = ["Admin","User"];
 const KEY = "phoenixx:pipeline:v1";
 
 /* ---------- cloud database (Supabase) ----------
@@ -383,7 +383,7 @@ const LOCK = '<span class="locked" title="Visible to Admins only">•••</spa
 const pv = v => canPrice() ? money(v) : LOCK;             // price value, gated
 
 /* ---------- state ---------- */
-let S = { clients: [], log: [], user: { name:"Priya Kumar", role:"Manager" }, view:"board", seq: 1 };
+let S = { clients: [], log: [], users: [], user: { name:"", role:"User" }, view:"board", seq: 1 };
 let ui = { q:"", filters:{}, showFilters:false, dense:true, calMonth:new Date().getMonth(), calYear:new Date().getFullYear(), ready:false };
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
@@ -401,9 +401,10 @@ let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    // NOTE: the logged-in user/role is intentionally NOT saved to the shared cloud —
-    // each person signs in on their own device. Only the pipeline data is shared.
-    const payload = { clients: S.clients, log: S.log.slice(0, 400) };
+    // NOTE: the logged-in person (S.user) is intentionally NOT saved to the shared cloud —
+    // each person signs in on their own device. Pipeline data AND the user-account list
+    // (created by the admin) are shared so everyone authenticates against the same logins.
+    const payload = { clients: S.clients, log: S.log.slice(0, 400), users: S.users };
     try {
       if (sb) {
         const stamp = new Date().toISOString();
@@ -423,10 +424,10 @@ async function load() {
       const { data, error } = await sb.from("pipeline_state")
         .select("data, updated_at").eq("id", "main").maybeSingle();
       if (error) throw error;
-      if (data && data.data) { S.clients = data.data.clients || []; S.log = data.data.log || []; lastStamp = data.updated_at; return true; }
+      if (data && data.data) { S.clients = data.data.clients || []; S.log = data.data.log || []; S.users = data.data.users || []; lastStamp = data.updated_at; return true; }
     } else {
       const raw = localStorage.getItem(KEY);
-      if (raw) { const d = JSON.parse(raw); S.clients = d.clients || []; S.log = d.log || []; return true; }
+      if (raw) { const d = JSON.parse(raw); S.clients = d.clients || []; S.log = d.log || []; S.users = d.users || []; return true; }
     }
   } catch (e) { console.warn("Load failed — check Supabase keys / connection.", e); }
   return false;
@@ -810,7 +811,7 @@ function openForm(client, status) {
     const g = id => { const el = s.querySelector("#f_" + id); return el ? el.value.trim() : ""; };
     if (!g("company") || !g("contactName") || !g("phone")) { toast("Company name, contact name and phone number are required."); return; }
     const picked = sel => [...s.querySelectorAll(sel + " .pill.on")].map(p => p.dataset.v);
-    // Managers can't see or edit pricing fields — preserve whatever the client already had.
+    // Users can't see or edit pricing fields — preserve whatever the client already had.
     const budget = canPrice() ? g("budget") : (c.budget || "");
     const proposalAmount = canPrice() ? g("proposalAmount") : (c.proposalAmount || "");
     const data = { company:g("company"), industry:g("industry"), website:g("website"), location:g("location"), size:g("size"),
@@ -1059,28 +1060,17 @@ function openAccount() {
   const m = document.createElement("div"); m.className = "menu"; m.dataset.pop = "1";
   m.innerHTML = `<div class="head">Signed in as</div>
     <div style="padding:2px 10px 8px"><b style="font-size:13px">${esc(S.user.name)}</b><br><span style="font-size:11px;color:var(--faint)">${esc(S.user.role)} access${canPrice() ? "" : " · pricing hidden"}</span></div>
-    <hr><div class="head">Switch role</div>
-    ${ROLES.map(r => `<button data-role="${r}">${r === "Admin" ? "🔒 " : ""}${r} access${S.user.role === r ? " ✓" : ""}</button>`).join("")}
+    ${canPrice() ? `<hr><div class="head">Admin</div><button data-a="users">👥 Manage user logins</button>` : ""}
     <hr><button data-a="backup">Download backup</button><button data-a="restore">Restore from backup</button>
-    <button data-a="seed">Load sample data</button><button class="danger" data-a="wipe">Clear all data</button>
+    ${canPrice() ? `<button data-a="seed">Load sample data</button><button class="danger" data-a="wipe">Clear all data</button>` : ""}
     <hr><button class="danger" data-a="signout">Sign out</button>`;
   document.body.appendChild(m);
   const r = $("#me").getBoundingClientRect();
   m.style.top = (r.bottom + 8) + "px"; m.style.left = Math.max(10, r.right - m.offsetWidth) + "px";
   m.addEventListener("click", async e => {
     const b = e.target.closest("button"); if (!b) return; closeMenus();
-    if (b.dataset.role) {
-      const target = b.dataset.role;
-      if (target === S.user.role) return;
-      if (target === "Admin") {
-        const pin = prompt("Enter the admin passcode to unlock pricing & revenue:");
-        if (pin === null) return;
-        if (pin !== ADMIN_PIN) { toast("Incorrect passcode — still on Manager access."); return; }
-      }
-      S.user.role = target; save(); renderRoleBadge();
-      toast(`Switched to <b>${target}</b> access`); render(); return;
-    }
     const a = b.dataset.a;
+    if (a === "users") { if (canPrice()) manageUsers(); return; }
     if (a === "signout") { showLogin(); return; }
     if (a === "backup") { dl(JSON.stringify({ clients:S.clients, log:S.log, user:S.user, exported:new Date().toISOString() }, null, 2), "phoenixx-backup-" + today() + ".json", "application/json"); toast("Backup downloaded"); }
     if (a === "restore") {
@@ -1112,43 +1102,105 @@ function showLogin() {
   s.innerHTML = `<div class="sheet" style="width:min(440px,100%)">
     <header><h2>Sign in to Phoenixx IT</h2></header>
     <div class="body">
-      <p style="color:var(--muted);margin:0 0 16px;font-size:12.5px">Choose your access level. Pricing, budgets and revenue figures are visible to <b style="color:var(--text)">Admins</b> only.</p>
-      <div class="f" style="margin-bottom:14px"><label for="lg_name">Your name</label>
-        <input id="lg_name" type="text" value="${esc(S.user.name||"")}" placeholder="e.g. Priya Kumar"></div>
-      <div class="f" style="margin-bottom:14px"><label>Access level</label>
+      <p style="color:var(--muted);margin:0 0 16px;font-size:12.5px">Choose how you're signing in. Pricing, budgets and revenue figures are visible to the <b style="color:var(--text)">Admin</b> only.</p>
+      <div class="f" style="margin-bottom:14px"><label>Account type</label>
         <div class="login-role" id="lg_roles">
-          <button type="button" data-role="Admin"><b>Admin</b><span>Full access, incl. pricing &amp; revenue</span></button>
-          <button type="button" data-role="Manager" class="on"><b>Manager</b><span>Everything except pricing</span></button>
+          <button type="button" data-role="User" class="on"><b>User</b><span>Team login — everything except pricing</span></button>
+          <button type="button" data-role="Admin"><b>Admin</b><span>Full access &amp; user management</span></button>
         </div></div>
-      <div class="f" id="lg_pinwrap" style="display:none;margin-bottom:4px"><label for="lg_pin">Admin passcode</label>
-        <input id="lg_pin" type="password" placeholder="Enter admin passcode" autocomplete="off"></div>
+      <div class="f" style="margin-bottom:14px"><label for="lg_name" id="lg_namelabel">Username</label>
+        <input id="lg_name" type="text" value="" placeholder="Your username" autocomplete="off"></div>
+      <div class="f" style="margin-bottom:4px"><label for="lg_pin" id="lg_pinlabel">Passcode</label>
+        <input id="lg_pin" type="password" placeholder="Your passcode" autocomplete="off"></div>
+      <p id="lg_hint" style="color:var(--faint);font-size:11px;margin:8px 0 0"></p>
       <p id="lg_err" style="color:#FF8A8A;font-size:11.5px;margin:8px 0 0;display:none"></p>
     </div>
     <div class="actions"><button class="btn primary" id="lg_go" style="width:100%">Continue</button></div>
   </div>`;
   document.body.appendChild(s);
 
-  let role = "Manager";
-  const pinwrap = s.querySelector("#lg_pinwrap"), err = s.querySelector("#lg_err");
+  let role = "User";
+  const err = s.querySelector("#lg_err"), hint = s.querySelector("#lg_hint");
+  const nameLabel = s.querySelector("#lg_namelabel"), pinLabel = s.querySelector("#lg_pinlabel");
+  const nameInput = s.querySelector("#lg_name"), pinInput = s.querySelector("#lg_pin");
+  const applyRole = () => {
+    err.style.display = "none";
+    if (role === "Admin") {
+      nameLabel.textContent = "Your name (optional)"; nameInput.placeholder = "e.g. Priya Kumar";
+      pinLabel.textContent = "Admin passcode"; pinInput.placeholder = "Enter admin passcode";
+      hint.textContent = "";
+    } else {
+      nameLabel.textContent = "Username"; nameInput.placeholder = "Your username";
+      pinLabel.textContent = "Passcode"; pinInput.placeholder = "Your passcode";
+      hint.textContent = (S.users || []).length ? "" : "No user logins yet — ask your admin to create one.";
+    }
+  };
   s.querySelectorAll("#lg_roles button").forEach(btn => btn.addEventListener("click", () => {
     role = btn.dataset.role;
     s.querySelectorAll("#lg_roles button").forEach(x => x.classList.toggle("on", x === btn));
-    pinwrap.style.display = role === "Admin" ? "flex" : "none";
-    err.style.display = "none";
-    if (role === "Admin") s.querySelector("#lg_pin").focus();
+    applyRole(); nameInput.focus();
   }));
+  applyRole();
+
   const go = () => {
-    const name = s.querySelector("#lg_name").value.trim() || "Team member";
-    if (role === "Admin" && s.querySelector("#lg_pin").value !== ADMIN_PIN) {
-      err.textContent = "Incorrect admin passcode. Try again, or continue as Manager."; err.style.display = "block";
-      s.querySelector("#lg_pin").focus(); return;
+    const name = nameInput.value.trim(), pin = pinInput.value;
+    if (role === "Admin") {
+      if (pin !== ADMIN_PIN) { err.textContent = "Incorrect admin passcode."; err.style.display = "block"; pinInput.focus(); return; }
+      S.user = { name: name || "Admin", role: "Admin" };
+    } else {
+      if (!name || !pin) { err.textContent = "Enter your username and passcode."; err.style.display = "block"; return; }
+      const acct = (S.users || []).find(u => u.name.toLowerCase() === name.toLowerCase() && u.pin === pin);
+      if (!acct) { err.textContent = "Wrong username or passcode. Ask your admin to create your login."; err.style.display = "block"; return; }
+      S.user = { name: acct.name, role: "User" };
     }
-    S.user = { name, role }; save(); s.remove(); startApp();
-    toast(`Welcome, <b>${esc(name)}</b> · ${role} access`);
+    s.remove(); startApp();
+    toast(`Welcome, <b>${esc(S.user.name)}</b> · ${S.user.role} access`);
   };
   s.querySelector("#lg_go").addEventListener("click", go);
   s.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); go(); } });
-  s.querySelector("#lg_name").focus();
+  nameInput.focus();
+}
+
+/* ---------- admin: manage user logins ---------- */
+function manageUsers() {
+  if (!canPrice()) return;
+  const listHTML = () => (S.users || []).length
+    ? S.users.map(u => `<div class="file"><span>👤</span><b>${esc(u.name)}</b>
+        <span style="color:var(--faint);font-family:var(--mono);font-size:11px">${esc(u.pin)}</span>
+        <button data-del-user="${u.id}" title="Remove user" style="color:var(--faint)">✕</button></div>`).join("")
+    : `<p style="color:var(--faint);font-size:12px;margin:0">No user logins yet. Create one below — share the username and passcode with your team member.</p>`;
+
+  const s = modal("Manage user logins", `
+    <div class="sec"><h5>Existing users</h5>
+      <div class="filelist" id="mu_list">${listHTML()}</div></div>
+    <div class="sec"><h5>Create a new user</h5>
+      <div class="grid">
+        <div class="f"><label for="mu_name">Username</label><input id="mu_name" type="text" placeholder="e.g. Arun" autocomplete="off"></div>
+        <div class="f"><label for="mu_pin">Passcode</label><input id="mu_pin" type="text" placeholder="e.g. arun123" autocomplete="off"></div>
+      </div>
+      <button class="btn primary" id="mu_add" style="margin-top:12px">Add user</button>
+      <p style="color:var(--faint);font-size:11px;margin:10px 0 0">Users sign in with this username + passcode and see everything except pricing. Passcodes are shown here so you can share them.</p>
+    </div>`,
+    `<button class="btn ghost" data-close2>Close</button>`);
+
+  const repaint = () => s.querySelector("#mu_list").innerHTML = listHTML();
+  s.querySelector("[data-close2]").addEventListener("click", () => s.remove());
+  s.querySelector("#mu_add").addEventListener("click", () => {
+    const name = s.querySelector("#mu_name").value.trim(), pin = s.querySelector("#mu_pin").value.trim();
+    if (!name || !pin) { toast("Enter a username and a passcode."); return; }
+    if ((S.users || []).some(u => u.name.toLowerCase() === name.toLowerCase())) { toast("That username already exists."); return; }
+    S.users = S.users || [];
+    S.users.push({ id: uid(), name, pin, createdBy: S.user.name, at: new Date().toISOString() });
+    save(); repaint();
+    s.querySelector("#mu_name").value = ""; s.querySelector("#mu_pin").value = "";
+    toast(`User <b>${esc(name)}</b> created`);
+  });
+  s.querySelector("#mu_list").addEventListener("click", e => {
+    const b = e.target.closest("[data-del-user]"); if (!b) return;
+    const u = (S.users || []).find(x => x.id === b.dataset.delUser); if (!u) return;
+    if (!confirm(`Remove the login for "${u.name}"? They will no longer be able to sign in.`)) return;
+    S.users = S.users.filter(x => x.id !== u.id); save(); repaint(); toast("User removed");
+  });
 }
 
 function startApp() {
@@ -1180,7 +1232,7 @@ addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "k"
 (async () => {
   const had = await load();
   if (!had || !S.clients.length) seed();
-  S.user.role = "Manager";        // never auto-restore Admin — pricing stays locked until sign-in
+  S.user = { name:"", role:"User" };   // never auto-restore Admin — pricing stays locked until sign-in
   showLogin();                    // startApp() runs after a successful sign-in
   if (sb) setInterval(pollRemote, 15000);   // live-sync teammates' changes every 15s
 })();

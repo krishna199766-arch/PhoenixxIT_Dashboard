@@ -29,27 +29,37 @@ persistence) lives in one HTML file that runs straight in the browser.
 
 ## Roles & access control
 
-The dashboard has a sign-in gate with two roles:
+The dashboard has a sign-in gate with two account types:
 
-| Role | Passcode | Sees pricing? |
-|------|----------|---------------|
-| **Admin** | Required | ✅ Full access, including all pricing & revenue |
-| **Manager** | None | ❌ Everything **except** pricing |
+| Account | Signs in with | Sees pricing? | Can manage users? |
+|---------|---------------|---------------|-------------------|
+| **Admin** | The shared admin passcode | ✅ Full access, incl. pricing & revenue | ✅ Yes |
+| **User** | Their own username + passcode (created by the Admin) | ❌ Everything **except** pricing | ❌ No |
 
-**"Pricing" hidden from Managers** covers: card values, the "Pipeline value" &
+**"Pricing" hidden from Users** covers: card values, the "Pipeline value" &
 "Revenue closed" stat tiles, the "Proposal value by stage" & "Revenue closed"
 analytics panels, the Budget & Proposal-amount form fields, budget/amount columns
-in CSV export, and the value line in downloaded proposals. Managers keep full access
+in CSV export, and the value line in downloaded proposals. Users keep full access
 to everything else (clients, contacts, stages, notes, calendar, follow-ups).
+
+### Creating user logins (Admin only)
+
+1. Sign in as **Admin** (using the admin passcode).
+2. Open the account menu (avatar, top-right) → **👥 Manage user logins**.
+3. Enter a **username** and a **passcode**, click **Add user**. Share those two
+   values with your team member.
+
+User accounts are stored in the shared cloud database, so a login created by the
+Admin works on any device. Only the Admin can create, view or remove user logins,
+load/clear sample data — Users don't see those options.
 
 ### Signing in
 
-- **Manager:** enter your name, leave **Manager** selected, click **Continue**.
-- **Admin:** enter your name, choose **Admin**, enter the passcode, click **Continue**.
+- **User:** pick **User**, enter your username + passcode, click **Continue**.
+- **Admin:** pick **Admin**, enter the admin passcode (name optional), click **Continue**.
 
-You can switch roles or sign out anytime from the account menu (avatar, top-right).
-Switching to Admin re-prompts for the passcode. Admin is never auto-restored on
-reload — pricing stays locked until you sign in again.
+Sign out anytime from the account menu. Admin is never auto-restored on reload —
+pricing stays locked until you sign in again.
 
 ### Changing the Admin passcode
 
