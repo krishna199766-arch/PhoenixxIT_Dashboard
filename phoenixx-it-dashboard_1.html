@@ -352,6 +352,7 @@ input:-webkit-autofill,input:-webkit-autofill:hover,input:-webkit-autofill:focus
 "use strict";
 
 const COLS = [
+  { id:"notstarted", t:"Not Yet Started",       d:"Prospects identified, not yet contacted.", c:"#7A7A88" },
   { id:"discovery",  t:"Discovery & Research",  d:"Companies researched and qualified.", c:"#9AA3B2" },
   { id:"approached", t:"Client Approached",     d:"Contacted by phone, email or LinkedIn.", c:"#4C9AFF" },
   { id:"meeting",    t:"Meeting Scheduled",     d:"Meeting booked or discussion ongoing.", c:"#A57BFF" },
@@ -506,7 +507,7 @@ function stats(list) {
   const closed = live.filter(c => c.status === "converted");
   const decided = by("converted") + by("lost");
   return {
-    total: live.length, discovery: by("discovery"), approached: by("approached"), meeting: by("meeting"),
+    total: live.length, notstarted: by("notstarted"), discovery: by("discovery"), approached: by("approached"), meeting: by("meeting"),
     proposal: by("proposal"), converted: by("converted"), lost: by("lost"),
     conv: decided ? Math.round(by("converted") / decided * 100) : 0,
     pipeline: live.filter(c => !["converted","lost"].includes(c.status)).reduce((s,c) => s + Number(c.proposalAmount || c.budget || 0), 0),
@@ -550,7 +551,7 @@ function renderTabs() {
 function renderStats() {
   const list = S.clients.filter(c => !c.archived), s = stats(list);
   let cells = [
-    ["Total clients", s.total, "", "#FFFFFF"], ["Discovery", s.discovery, "", COL("discovery").c],
+    ["Total clients", s.total, "", "#FFFFFF"], ["Not started", s.notstarted, "", COL("notstarted").c], ["Discovery", s.discovery, "", COL("discovery").c],
     ["Approached", s.approached, "", COL("approached").c], ["Meetings", s.meeting, "", COL("meeting").c],
     ["Proposals", s.proposal, "", COL("proposal").c], ["Converted", s.converted, "", COL("converted").c],
     ["Lost", s.lost, "", COL("lost").c], ["Conversion", s.conv + "%", "of decided deals", "#FF6B00"],

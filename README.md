@@ -10,9 +10,9 @@ persistence) lives in one HTML file that runs straight in the browser.
 
 ## Features
 
-- **Kanban pipeline board** — drag clients across six stages: Discovery, Approached,
-  Meeting Scheduled, Proposal Shared, Onboarded/Converted, Not Converted. Every move
-  is recorded in the client's activity timeline.
+- **Kanban pipeline board** — drag clients across seven stages: Not Yet Started,
+  Discovery, Approached, Meeting Scheduled, Proposal Shared, Onboarded/Converted,
+  Not Converted. Every move is recorded in the client's activity timeline.
 - **Client records** — company, contact, services, budget, lead source, priority,
   rating, tags, follow-up dates, attachments and notes.
 - **Analytics** — monthly leads, conversion funnel, industry & lead-source breakdown,
