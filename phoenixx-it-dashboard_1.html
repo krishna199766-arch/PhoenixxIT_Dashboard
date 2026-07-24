@@ -368,8 +368,8 @@ const KEY = "phoenixx:pipeline:v1";
    Paste your project's URL and anon (public) key below to save the pipeline to
    the cloud so the whole team shares one live board. Leave them blank to fall
    back to this browser's local storage. See README for the 5-minute setup. */
-const SUPABASE_URL  = "";   // e.g. "https://abcd1234.supabase.co"
-const SUPABASE_ANON = "";   // e.g. "eyJhbGciOi...."  (the anon public key)
+const SUPABASE_URL  = "https://pemvjqnxhvoaheuznkfc.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlbXZqcW54aHZvYWhldXpua2ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4NzMxMjYsImV4cCI6MjEwMDQ0OTEyNn0.SOdvfolcfWdUq04nWtlVVgm-bBUjnKcODnjjGAuyd6A";
 const sb = (SUPABASE_URL && SUPABASE_ANON && window.supabase)
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
   : null;
