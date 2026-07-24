@@ -1105,7 +1105,7 @@ function showLogin() {
   document.querySelectorAll(".scrim").forEach(x => x.remove());
   const s = document.createElement("div"); s.className = "scrim"; s.dataset.login = "1"; s.style.zIndex = "400";
   s.innerHTML = `<div class="sheet" style="width:min(440px,100%)">
-    <header><h2>Sign in to Phoenixx IT</h2></header>
+    <header style="justify-content:center"><h2 style="flex:none;text-align:center">Sign in to Phoenixx IT</h2></header>
     <div class="body">
       <div class="f" style="margin-bottom:14px"><label>Account type</label>
         <div class="login-role" id="lg_roles">
