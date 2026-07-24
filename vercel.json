@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/phoenixx-it-dashboard_1.html" }
+  ]
+}
