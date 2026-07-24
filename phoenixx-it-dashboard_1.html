@@ -337,6 +337,10 @@ textarea{resize:vertical;min-height:64px;width:100%}
   <div id="view"></div>
 </main>
 
+<!-- Supabase client (cloud database). Loaded from CDN; harmless if you haven't
+     configured your keys yet — the app falls back to browser storage. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 /* PHOENIXX IT Dashboard — client pipeline */
 (() => {
@@ -359,6 +363,17 @@ const INDUSTRIES = ["Construction","Retail","Education","Sports","Healthcare","R
 const OWNERS   = ["Arun R.","Divya S.","Karthik M.","Nisha P."];
 const ROLES    = ["Admin","Manager"];
 const KEY = "phoenixx:pipeline:v1";
+
+/* ---------- cloud database (Supabase) ----------
+   Paste your project's URL and anon (public) key below to save the pipeline to
+   the cloud so the whole team shares one live board. Leave them blank to fall
+   back to this browser's local storage. See README for the 5-minute setup. */
+const SUPABASE_URL  = "";   // e.g. "https://abcd1234.supabase.co"
+const SUPABASE_ANON = "";   // e.g. "eyJhbGciOi...."  (the anon public key)
+const sb = (SUPABASE_URL && SUPABASE_ANON && window.supabase)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+  : null;
+let lastStamp = null;       // remote updated_at we last loaded, to detect others' changes
 
 /* ---------- access control ---------- */
 /* Change this passcode to control who gets Admin (pricing & revenue) access. */
@@ -386,16 +401,45 @@ let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    try { await window.storage.set(KEY, JSON.stringify({ clients:S.clients, log:S.log.slice(0,400), user:S.user })); }
-    catch (e) { console.warn("Storage unavailable — this session only.", e); }
+    // NOTE: the logged-in user/role is intentionally NOT saved to the shared cloud —
+    // each person signs in on their own device. Only the pipeline data is shared.
+    const payload = { clients: S.clients, log: S.log.slice(0, 400) };
+    try {
+      if (sb) {
+        const stamp = new Date().toISOString();
+        const { error } = await sb.from("pipeline_state")
+          .upsert({ id: "main", data: payload, updated_at: stamp });
+        if (error) throw error;
+        lastStamp = stamp;                       // our own change — don't re-pull it
+      } else {
+        localStorage.setItem(KEY, JSON.stringify(payload));
+      }
+    } catch (e) { console.warn("Save failed — check Supabase keys / connection.", e); }
   }, 250);
 }
 async function load() {
   try {
-    const r = await window.storage.get(KEY);
-    if (r && r.value) { const d = JSON.parse(r.value); S.clients = d.clients||[]; S.log = d.log||[]; S.user = d.user||S.user; return true; }
-  } catch (e) { /* first run or storage off */ }
+    if (sb) {
+      const { data, error } = await sb.from("pipeline_state")
+        .select("data, updated_at").eq("id", "main").maybeSingle();
+      if (error) throw error;
+      if (data && data.data) { S.clients = data.data.clients || []; S.log = data.data.log || []; lastStamp = data.updated_at; return true; }
+    } else {
+      const raw = localStorage.getItem(KEY);
+      if (raw) { const d = JSON.parse(raw); S.clients = d.clients || []; S.log = d.log || []; return true; }
+    }
+  } catch (e) { console.warn("Load failed — check Supabase keys / connection.", e); }
   return false;
+}
+/* Poll the cloud so teammates' changes appear without a manual refresh. */
+async function pollRemote() {
+  if (!sb || document.hidden || document.querySelector(".scrim")) return;   // don't interrupt editing
+  try {
+    const { data } = await sb.from("pipeline_state").select("updated_at").eq("id", "main").maybeSingle();
+    if (data && data.updated_at && data.updated_at !== lastStamp) {
+      await load(); render(); toast("Pipeline updated by a teammate");
+    }
+  } catch (e) { /* transient network issue — try again next tick */ }
 }
 
 function logIt(clientId, action, detail) {
@@ -1138,6 +1182,7 @@ addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "k"
   if (!had || !S.clients.length) seed();
   S.user.role = "Manager";        // never auto-restore Admin — pricing stays locked until sign-in
   showLogin();                    // startApp() runs after a successful sign-in
+  if (sb) setInterval(pollRemote, 15000);   // live-sync teammates' changes every 15s
 })();
 
 })();

@@ -22,7 +22,8 @@ persistence) lives in one HTML file that runs straight in the browser.
   value and date range.
 - **Notifications** — follow-ups due, overdue items, meetings today, stale proposals.
 - **Export** — CSV (Excel), JSON backup/restore, and printable proposal summaries.
-- **Local persistence** — data is saved in the browser; no server required.
+- **Persistence** — saves to your browser by default, or to a shared cloud database
+  (Supabase) so the whole team sees one live pipeline. See *Data storage & team sync*.
 
 ---
 
@@ -78,7 +79,51 @@ data, clear all data, or back up / restore from a JSON file.
 
 ---
 
+## Data storage & team sync
+
+By default the dashboard saves to **your browser's local storage** — data stays on
+that one device and isn't shared. To let your **whole team share one live pipeline**,
+connect a free [Supabase](https://supabase.com) database (5-minute, one-time setup):
+
+1. **Create a project** at [supabase.com](https://supabase.com) → *New project*.
+2. **Create the table** — open *SQL Editor*, paste this, and click *Run*:
+
+   ```sql
+   create table if not exists pipeline_state (
+     id text primary key,
+     data jsonb,
+     updated_at timestamptz default now()
+   );
+   alter table pipeline_state enable row level security;
+   create policy "public access" on pipeline_state
+     for all using (true) with check (true);
+   ```
+
+3. **Get your keys** — *Project Settings → API*. Copy the **Project URL** and the
+   **anon / public** key.
+4. **Paste them into the dashboard** — near the top of the `<script>` in
+   [`phoenixx-it-dashboard_1.html`](phoenixx-it-dashboard_1.html):
+
+   ```js
+   const SUPABASE_URL  = "https://YOUR-PROJECT.supabase.co";
+   const SUPABASE_ANON = "YOUR-ANON-PUBLIC-KEY";
+   ```
+
+5. **Save, commit and push** — Vercel redeploys and the whole team now shares the
+   same board. Changes from teammates appear automatically (auto-refresh every 15s).
+
+Leave `SUPABASE_URL` / `SUPABASE_ANON` blank and it keeps working in local-storage
+mode on each device.
+
+> **Security note:** the `anon` key and `ADMIN_PIN` live in the page source, and the
+> SQL policy above allows public read/write. That's fine for a small internal team
+> behind a private URL, but anyone with the link can read/write the data. For stricter
+> control, add Supabase Auth and tighten the row-level-security policy.
+
+---
+
 ## Tech
 
-Plain HTML, CSS and vanilla JavaScript — no frameworks, no dependencies, no network
-calls. Data persists via the browser's local storage.
+Plain HTML, CSS and vanilla JavaScript — no build step, no framework. Data persists in
+the browser's local storage by default, or in a shared [Supabase](https://supabase.com)
+Postgres database when configured (loaded via CDN).
