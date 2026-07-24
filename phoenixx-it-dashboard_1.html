@@ -386,6 +386,9 @@ let lastStamp = null;       // remote updated_at we last loaded, to detect other
 /* Change this passcode to control who gets Admin (pricing & revenue) access. */
 const ADMIN_PIN = "phoenixx2026";
 const canPrice = () => S.user.role === "Admin";          // only Admins see pricing
+const isAdmin  = () => S.user.role === "Admin";
+/* Admin sees every client; a User sees only clients assigned to them. */
+const canSee   = c => isAdmin() || c.owner === S.user.name;
 const LOCK = '<span class="locked" title="Visible to Admins only">•••</span>';
 const pv = v => canPrice() ? money(v) : LOCK;             // price value, gated
 
@@ -484,6 +487,7 @@ function visible() {
   const q = ui.q.trim().toLowerCase(), f = ui.filters;
   return S.clients.filter(c => {
     if (S.view === "archive" ? !c.archived : c.archived) return false;
+    if (!canSee(c)) return false;
     if (q) {
       const hay = [c.company,c.contactName,c.phone,c.whatsapp,c.email,c.industry,c.location,(c.tags||[]).join(" "),(c.services||[]).join(" ")].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
@@ -519,7 +523,7 @@ function stats(list) {
 }
 function alerts() {
   const out = [];
-  S.clients.filter(c => !c.archived).forEach(c => {
+  S.clients.filter(c => !c.archived && canSee(c)).forEach(c => {
     if (c.followUp === today()) out.push({ c, k:"#FF6B00", t:"Follow-up due today", s:c.company });
     else if (c.followUp && c.followUp < today() && !["converted","lost"].includes(c.status)) out.push({ c, k:"#FF4D4D", t:"Follow-up overdue", s:c.company + " · " + fdate(c.followUp) });
     if (c.meeting === today()) out.push({ c, k:"#A57BFF", t:"Meeting today", s:c.company });
@@ -550,7 +554,7 @@ function renderTabs() {
        <button class="tab" data-act="print">Print / PDF</button>`;
 }
 function renderStats() {
-  const list = S.clients.filter(c => !c.archived), s = stats(list);
+  const list = S.clients.filter(c => !c.archived && canSee(c)), s = stats(list);
   let cells = [
     ["Total clients", s.total, "", "#FFFFFF"], ["Not started", s.notstarted, "", COL("notstarted").c], ["Discovery", s.discovery, "", COL("discovery").c],
     ["Approached", s.approached, "", COL("approached").c], ["Meetings", s.meeting, "", COL("meeting").c],
@@ -951,7 +955,7 @@ function exportCSV() {
 
 /* ---------- analytics ---------- */
 function viewAnalytics() {
-  const list = S.clients.filter(c => !c.archived), s = stats(list);
+  const list = S.clients.filter(c => !c.archived && canSee(c)), s = stats(list);
   const months = [...Array(6)].map((_, i) => { const d = new Date(); d.setMonth(d.getMonth() - (5 - i)); return { k:d.toISOString().slice(0,7), l:d.toLocaleDateString("en-IN",{month:"short"}) }; });
   const leadsBy = months.map(m => list.filter(c => (c.createdDate||"").startsWith(m.k)).length);
   const revBy = months.map(m => list.filter(c => c.status === "converted" && (c.closing||"").startsWith(m.k)).reduce((a,c) => a + Number(c.proposalAmount||c.budget||0), 0));
@@ -1014,7 +1018,7 @@ function viewCalendar() {
   const first = new Date(y, m, 1), start = first.getDay(), dim = new Date(y, m+1, 0).getDate(), pdim = new Date(y, m, 0).getDate();
   const evs = {};
   const push = (d, k, label, id) => { if (!d) return; (evs[d] = evs[d] || []).push({ k, label, id }); };
-  S.clients.filter(c => !c.archived).forEach(c => {
+  S.clients.filter(c => !c.archived && canSee(c)).forEach(c => {
     push(c.meeting, "#A57BFF", "Meeting · " + c.company, c.id);
     push(c.followUp, "#FF6B00", "Follow-up · " + c.company, c.id);
     push(c.proposalDate, "#4C9AFF", "Proposal · " + c.company, c.id);
