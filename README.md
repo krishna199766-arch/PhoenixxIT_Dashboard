@@ -49,9 +49,13 @@ to everything else (clients, contacts, stages, notes, calendar, follow-ups).
 3. Enter a **username** and a **passcode**, click **Add user**. Share those two
    values with your team member.
 
+**Forgot a passcode?** The Admin can see every user's passcode (🔑) in *Manage
+user logins*, so just read it there — or click **Reset** next to a user to set a
+new one.
+
 User accounts are stored in the shared cloud database, so a login created by the
-Admin works on any device. Only the Admin can create, view or remove user logins,
-load/clear sample data — Users don't see those options.
+Admin works on any device. Only the Admin can create, view, reset or remove user
+logins, and load/clear sample data — Users don't see those options.
 
 ### Signing in
 

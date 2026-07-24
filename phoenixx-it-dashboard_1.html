@@ -1166,7 +1166,8 @@ function manageUsers() {
   if (!canPrice()) return;
   const listHTML = () => (S.users || []).length
     ? S.users.map(u => `<div class="file"><span>👤</span><b>${esc(u.name)}</b>
-        <span style="color:var(--faint);font-family:var(--mono);font-size:11px">${esc(u.pin)}</span>
+        <span title="Their passcode" style="color:var(--faint);font-family:var(--mono);font-size:11px">🔑 ${esc(u.pin)}</span>
+        <button data-reset-user="${u.id}" title="Set a new passcode" style="color:var(--orange);font-size:11px;font-weight:600">Reset</button>
         <button data-del-user="${u.id}" title="Remove user" style="color:var(--faint)">✕</button></div>`).join("")
     : `<p style="color:var(--faint);font-size:12px;margin:0">No user logins yet. Create one below — share the username and passcode with your team member.</p>`;
 
@@ -1179,7 +1180,7 @@ function manageUsers() {
         <div class="f"><label for="mu_pin">Passcode</label><input id="mu_pin" type="text" placeholder="e.g. arun123" autocomplete="off"></div>
       </div>
       <button class="btn primary" id="mu_add" style="margin-top:12px">Add user</button>
-      <p style="color:var(--faint);font-size:11px;margin:10px 0 0">Users sign in with this username + passcode and see everything except pricing. Passcodes are shown here so you can share them.</p>
+      <p style="color:var(--faint);font-size:11px;margin:10px 0 0">Users sign in with this username + passcode and see everything except pricing. Passcodes are shown above (🔑) so you can share them — if someone forgets theirs, just read it here or hit <b style="color:var(--orange)">Reset</b> to set a new one.</p>
     </div>`,
     `<button class="btn ghost" data-close2>Close</button>`);
 
@@ -1196,6 +1197,16 @@ function manageUsers() {
     toast(`User <b>${esc(name)}</b> created`);
   });
   s.querySelector("#mu_list").addEventListener("click", e => {
+    const rb = e.target.closest("[data-reset-user]");
+    if (rb) {
+      const u = (S.users || []).find(x => x.id === rb.dataset.resetUser); if (!u) return;
+      const np = prompt(`Set a new passcode for "${u.name}".\nTheir current passcode is: ${u.pin}`, u.pin);
+      if (np === null) return;
+      const pin = np.trim();
+      if (!pin) { toast("Passcode can't be empty."); return; }
+      u.pin = pin; save(); repaint(); toast(`Passcode for <b>${esc(u.name)}</b> updated`);
+      return;
+    }
     const b = e.target.closest("[data-del-user]"); if (!b) return;
     const u = (S.users || []).find(x => x.id === b.dataset.delUser); if (!u) return;
     if (!confirm(`Remove the login for "${u.name}"? They will no longer be able to sign in.`)) return;
