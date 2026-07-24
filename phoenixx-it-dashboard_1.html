@@ -366,7 +366,8 @@ const SERVICES = ["Website Development","Mobile App","Digital Marketing","SEO","
 const SOURCES  = ["Cold Call","Reference","LinkedIn","Website","Google","Instagram","Facebook","Walk-in","Event","Other"];
 const TAGS     = ["Construction","Retail","Education","Sports","Healthcare","Real Estate","Manufacturing","Startup","Corporate"];
 const INDUSTRIES = ["Construction","Retail","Education","Sports","Healthcare","Real Estate","Manufacturing","IT Services","Logistics","Hospitality","Finance","Other"];
-const OWNERS   = ["Arun R.","Divya S.","Karthik M.","Nisha P."];
+/* Team members you can assign clients to = the user logins the admin created. */
+const owners = () => (S.users || []).map(u => u.name);
 const ROLES    = ["Admin","User"];
 const KEY = "phoenixx:pipeline:v1";
 
@@ -462,17 +463,17 @@ function seed() {
     contactName:"", designation:"", email:"", phone:"", whatsapp:"", linkedin:"",
     services:[], source:"Cold Call", requirement:"", pain:"", budget:"", timeline:"", competitor:"", decisionMaker:"", remarks:"",
     createdDate:today(), followUp:"", meeting:"", proposalDate:"", closing:"",
-    proposalAmount:"", proposalLink:"", files:[], priority:"Medium", rating:3, tags:[], owner:OWNERS[0],
+    proposalAmount:"", proposalLink:"", files:[], priority:"Medium", rating:3, tags:[], owner:"",
     status:"discovery", notes:[], archived:false
   }, o);
   S.clients = [
     base({ company:"Vaigai Constructions", industry:"Construction", contactName:"Senthil Kumar", designation:"Director", phone:"+91 98430 11223", email:"senthil@vaigaiconstruct.in", services:["Website Development","SEO"], budget:"180000", priority:"High", rating:4, tags:["Construction"], status:"proposal", proposalAmount:"185000", proposalDate:d(-4), followUp:d(0), closing:d(12), source:"Reference", requirement:"Corporate site with project gallery and lead capture.", pain:"Existing site is 9 years old and not mobile friendly.", decisionMaker:"Senthil Kumar", competitor:"A local freelancer", notes:[{ id:uid(), text:"Wants the project gallery to load fast on 4G. Sent revised quote.", who:"Priya Kumar", at:new Date(Date.now()-864e5*2).toISOString() }] }),
     base({ company:"Kovai Sports Arena", industry:"Sports", contactName:"Ramya Devi", designation:"Owner", phone:"+91 90031 45566", email:"ramya@kovaisports.com", services:["Mobile App","Digital Marketing"], budget:"450000", priority:"High", rating:5, tags:["Sports","Startup"], status:"meeting", meeting:d(1), followUp:d(1), source:"Instagram", requirement:"Turf booking app with UPI payments and slot management.", pain:"Bookings handled over WhatsApp, double-booking every week.", decisionMaker:"Ramya Devi" }),
-    base({ company:"Sri Lakshmi Textiles", industry:"Manufacturing", contactName:"Bala Murugan", designation:"GM Operations", phone:"+91 94433 78901", email:"bala@srilakshmitex.com", services:["ERP","Cloud"], budget:"900000", priority:"Medium", rating:4, tags:["Manufacturing"], status:"approached", followUp:d(3), source:"Cold Call", requirement:"ERP for production planning across two units.", owner:OWNERS[2] }),
-    base({ company:"Nova Dental Care", industry:"Healthcare", contactName:"Dr. Anitha R.", designation:"Founder", phone:"+91 99406 22110", email:"contact@novadental.in", services:["Website Development","Google Ads","Branding"], budget:"120000", priority:"Medium", rating:3, tags:["Healthcare"], status:"converted", proposalAmount:"132000", closing:d(-6), source:"Google", owner:OWNERS[1], notes:[{ id:uid(), text:"Onboarded. Kickoff call done, brand assets received.", who:"Divya S.", at:new Date(Date.now()-864e5*5).toISOString() }] }),
-    base({ company:"Greenfield Realty", industry:"Real Estate", contactName:"Mohan Das", designation:"Sales Head", phone:"+91 98946 33440", email:"mohan@greenfieldrealty.co", services:["Meta Ads","CRM"], budget:"260000", priority:"Low", rating:2, tags:["Real Estate"], status:"lost", source:"LinkedIn", remarks:"Went with an agency offering a lower retainer.", owner:OWNERS[3] }),
+    base({ company:"Sri Lakshmi Textiles", industry:"Manufacturing", contactName:"Bala Murugan", designation:"GM Operations", phone:"+91 94433 78901", email:"bala@srilakshmitex.com", services:["ERP","Cloud"], budget:"900000", priority:"Medium", rating:4, tags:["Manufacturing"], status:"approached", followUp:d(3), source:"Cold Call", requirement:"ERP for production planning across two units.", owner:"" }),
+    base({ company:"Nova Dental Care", industry:"Healthcare", contactName:"Dr. Anitha R.", designation:"Founder", phone:"+91 99406 22110", email:"contact@novadental.in", services:["Website Development","Google Ads","Branding"], budget:"120000", priority:"Medium", rating:3, tags:["Healthcare"], status:"converted", proposalAmount:"132000", closing:d(-6), source:"Google", owner:"", notes:[{ id:uid(), text:"Onboarded. Kickoff call done, brand assets received.", who:"Divya S.", at:new Date(Date.now()-864e5*5).toISOString() }] }),
+    base({ company:"Greenfield Realty", industry:"Real Estate", contactName:"Mohan Das", designation:"Sales Head", phone:"+91 98946 33440", email:"mohan@greenfieldrealty.co", services:["Meta Ads","CRM"], budget:"260000", priority:"Low", rating:2, tags:["Real Estate"], status:"lost", source:"LinkedIn", remarks:"Went with an agency offering a lower retainer.", owner:"" }),
     base({ company:"Athena Academy", industry:"Education", contactName:"Fathima N.", designation:"Administrator", phone:"+91 96770 55882", email:"admin@athenaacademy.edu.in", services:["Software Development","AI Automation"], budget:"340000", priority:"High", rating:4, tags:["Education"], status:"discovery", followUp:d(2), source:"Event", requirement:"Admissions portal with automated follow-ups." }),
-    base({ company:"Urban Cart Retail", industry:"Retail", contactName:"Vignesh S.", designation:"Co-founder", phone:"+91 73970 66123", email:"vignesh@urbancart.in", services:["Website Development","SEO","Meta Ads"], budget:"210000", priority:"Medium", rating:3, tags:["Retail","Startup"], status:"proposal", proposalAmount:"228000", proposalDate:d(-9), followUp:d(-1), closing:d(6), source:"Website", owner:OWNERS[1] })
+    base({ company:"Urban Cart Retail", industry:"Retail", contactName:"Vignesh S.", designation:"Co-founder", phone:"+91 73970 66123", email:"vignesh@urbancart.in", services:["Website Development","SEO","Meta Ads"], budget:"210000", priority:"Medium", rating:3, tags:["Retail","Startup"], status:"proposal", proposalAmount:"228000", proposalDate:d(-9), followUp:d(-1), closing:d(6), source:"Website", owner:"" })
   ];
   S.log = [{ id:uid(), clientId:S.clients[0].id, action:"Sample data loaded", detail:"7 demo clients created", who:"System", at:new Date().toISOString() }];
   save();
@@ -573,7 +574,7 @@ function renderFilters() {
     + sel("industry","Industry",INDUSTRIES,f.industry)
     + sel("priority","Priority",["High","Medium","Low"],f.priority)
     + sel("source","Lead source",SOURCES,f.source)
-    + sel("owner","Assigned to",OWNERS,f.owner)
+    + sel("owner","Assigned to",owners(),f.owner)
     + `<div class="fgroup"><label>Follow-up</label><select data-f="due">
         <option value="">Any</option><option value="today" ${f.due==="today"?"selected":""}>Due today</option>
         <option value="overdue" ${f.due==="overdue"?"selected":""}>Overdue</option>
@@ -732,7 +733,7 @@ function modal(title, bodyHTML, footHTML) {
 
 /* ---------- client form ---------- */
 function openForm(client, status) {
-  const c = client || { services:[], tags:[], notes:[], files:[], rating:3, priority:"Medium", status:status || "discovery", createdDate:today(), owner:OWNERS[0], source:"Cold Call" };
+  const c = client || { services:[], tags:[], notes:[], files:[], rating:3, priority:"Medium", status:status || "discovery", createdDate:today(), owner:"", source:"Cold Call" };
   const isNew = !client;
   const t = (id, label, val, type, req) => `<div class="f"><label for="${id}">${label}${req ? " <b>*</b>" : ""}</label><input id="${id}" type="${type||"text"}" value="${esc(val||"")}"></div>`;
   const sel = (id, label, opts, cur) => `<div class="f"><label for="${id}">${label}</label><select id="${id}">${opts.map(o => `<option ${cur===o?"selected":""}>${o}</option>`).join("")}</select></div>`;
@@ -745,7 +746,7 @@ function openForm(client, status) {
       ${t("f_website","Website", c.website, "url")}${t("f_location","Location", c.location)}
       ${sel("f_size","Company size",["","1–10","11–50","51–200","201–500","500+"], c.size||"")}
       ${t("f_revenue","Annual revenue", c.revenue)}${t("f_gst","GST number", c.gst)}
-      <div class="f"><label>Assigned to</label><select id="f_owner">${OWNERS.map(o => `<option ${c.owner===o?"selected":""}>${o}</option>`).join("")}</select></div>
+      <div class="f"><label>Assigned to</label><select id="f_owner"><option value="">Unassigned</option>${owners().map(o => `<option ${c.owner===o?"selected":""}>${o}</option>`).join("")}</select></div>
     </div></div>
 
     <div class="sec"><h5>Contact person</h5><div class="grid">
@@ -1000,9 +1001,9 @@ function viewAnalytics() {
         <span class="track"><span class="fill" style="width:${(v/maxS*100).toFixed(0)}%"></span></span><span class="v">${v}</span></div>`).join("") : emptyChart()}</div></div>
 
     <div class="panel glass"><h3>Team load</h3><p class="sub">Open clients per person</p>
-      <div class="bars">${OWNERS.map(o => { const n = list.filter(c => c.owner === o && !["converted","lost"].includes(c.status)).length;
-        const mx = Math.max(1, ...OWNERS.map(x => list.filter(c => c.owner === x && !["converted","lost"].includes(c.status)).length));
-        return `<div class="bar"><span class="t">${o}</span><span class="track"><span class="fill" style="width:${(n/mx*100).toFixed(0)}%"></span></span><span class="v">${n}</span></div>`; }).join("")}</div></div>
+      <div class="bars">${owners().length ? owners().map(o => { const n = list.filter(c => c.owner === o && !["converted","lost"].includes(c.status)).length;
+        const mx = Math.max(1, ...owners().map(x => list.filter(c => c.owner === x && !["converted","lost"].includes(c.status)).length));
+        return `<div class="bar"><span class="t">${esc(o)}</span><span class="track"><span class="fill" style="width:${(n/mx*100).toFixed(0)}%"></span></span><span class="v">${n}</span></div>`; }).join("") : emptyChart()}</div></div>
   </div>`;
 }
 const emptyChart = () => `<p style="color:var(--faint);font-size:12px;margin:0">Nothing to chart yet. Add a client to see this fill in.</p>`;
